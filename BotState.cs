@@ -1,21 +1,68 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
+using CounterStrikeSharp.API.Core.Attributes;
+using CounterStrikeSharp.API.Modules.Cvars;
 
 namespace BotState;
 
 public class BotState : BasePlugin
 {
-    public override string ModuleName        => "BotState";
-    public override string ModuleVersion     => "1.1.0";
+    public override string ModuleName        => "Smarter-Bot";
+    public override string ModuleVersion     => "1.2.0";
     public override string ModuleAuthor      => "ed0ard";
+    public override string ModuleDescription => "Make bots smarter";
+
+    private const float ExpandedValue = 4000f;
+    private const float NormalValue   = 100f;
+    private const float RestoreDelay  = 1.0f;
+
+    private bool _isExpanded = false;
+    private ConVar? _smokeConVar;
 
     public override void Load(bool hotReload)
     {
+        _smokeConVar = ConVar.Find("bot_max_visible_smoke_length");
+        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventRoundFreezeEnd>(OnRoundFreezeEnd);
     }
 
+    private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo _)
+    {
+        try
+        {
+            var victim = @event.Userid;
+            if (victim == null || !victim.IsValid || !victim.IsBot) return HookResult.Continue;
+
+            if (!_isExpanded)
+            {
+                _isExpanded = true;
+                SetSmokeLength(ExpandedValue);
+                AddTimer(RestoreDelay, () =>
+                {
+                    SetSmokeLength(NormalValue);
+                    _isExpanded = false;
+                });
+            }
+        }
+        catch { }
+        return HookResult.Continue;
+    }
+
+    private void SetSmokeLength(float value)
+    {
+        if (_smokeConVar != null)
+            _smokeConVar.SetValue(value);
+        else
+            Server.ExecuteCommand($"bot_max_visible_smoke_length {value}");
+    }
+
+    public override void Unload(bool hotReload)
+    {
+        SetSmokeLength(NormalValue);
+    }
+//---------------------------------------------------------------------------------------
     [GameEventHandler]
     public HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
     {
