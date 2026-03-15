@@ -3,13 +3,14 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Cvars;
+using System;
 
 namespace BotState;
 
 public class BotState : BasePlugin
 {
     public override string ModuleName        => "Smarter-Bot";
-    public override string ModuleVersion     => "1.2.0";
+    public override string ModuleVersion     => "1.3";
     public override string ModuleAuthor      => "ed0ard";
     public override string ModuleDescription => "Make bots smarter";
 
@@ -19,6 +20,8 @@ public class BotState : BasePlugin
 
     private bool _isExpanded = false;
     private ConVar? _smokeConVar;
+    
+    private readonly Random _random = new Random();
 
     public override void Load(bool hotReload)
     {
@@ -26,6 +29,7 @@ public class BotState : BasePlugin
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventRoundFreezeEnd>(OnRoundFreezeEnd);
+        RegisterEventHandler<EventPlayerBlind>(OnPlayerBlind);
     }
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo _)
@@ -61,6 +65,38 @@ public class BotState : BasePlugin
     public override void Unload(bool hotReload)
     {
         SetSmokeLength(NormalValue);
+    }
+//---------------------------------------------------------------------------------------
+    private HookResult OnPlayerBlind(EventPlayerBlind @event, GameEventInfo info)
+    {
+        var player = @event.Userid;
+
+        if (player is null || !player.IsValid || !player.IsBot)
+            return HookResult.Continue;
+
+        bool isImmune = _random.NextDouble() <= 0.7;
+        
+        if (isImmune)
+        {
+            @event.BlindDuration = 0f;
+            var pawn = player.PlayerPawn?.Value;
+            if (pawn != null && pawn.IsValid)
+            {
+                ref float blindStartTime = ref pawn.BlindStartTime;
+                blindStartTime = 0f;
+                
+                ref float blindUntilTime = ref pawn.BlindUntilTime;
+                blindUntilTime = 0f;
+                
+                ref float flashDuration = ref pawn.FlashDuration;
+                flashDuration = 0f;
+
+                ref float flashMaxAlpha = ref pawn.FlashMaxAlpha;
+                flashMaxAlpha = 0f;   
+            }
+        }
+
+        return HookResult.Continue;
     }
 //---------------------------------------------------------------------------------------
     [GameEventHandler]
