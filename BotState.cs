@@ -10,7 +10,7 @@ namespace BotState;
 public class BotState : BasePlugin
 {
     public override string ModuleName        => "Smarter-Bot";
-    public override string ModuleVersion     => "1.3";
+    public override string ModuleVersion     => "1.3.1";
     public override string ModuleAuthor      => "ed0ard";
     public override string ModuleDescription => "Make bots smarter";
 
@@ -30,6 +30,7 @@ public class BotState : BasePlugin
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
         RegisterEventHandler<EventRoundFreezeEnd>(OnRoundFreezeEnd);
         RegisterEventHandler<EventPlayerBlind>(OnPlayerBlind);
+        RegisterListener<Listeners.OnTick>(OnTick);
     }
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo _)
@@ -126,6 +127,35 @@ public class BotState : BasePlugin
         return HookResult.Continue;
     }
 
+    private void OnTick()
+    {
+        foreach (var player in Utilities.GetPlayers())
+        {
+            if (!player.IsValid || !player.IsBot) continue;
+            
+            var pawn = player.PlayerPawn.Value;
+            if (pawn == null || !pawn.IsValid) continue;
+
+            var bot = pawn.Bot;
+            if (bot == null) continue;
+
+            ref bool allowActive = ref bot.AllowActive;
+            allowActive = true;
+
+            ref bool botAllowActive = ref pawn.BotAllowActive;
+            botAllowActive = true;
+
+            ref bool isSleeping = ref bot.IsSleeping;
+            isSleeping = false;
+
+            ref bool isStuck = ref bot.IsStuck;
+            isStuck = false;
+
+            ref float idleTimeSinceLastAction = ref pawn.IdleTimeSinceLastAction;
+            idleTimeSinceLastAction = 0f;
+        }
+    }
+
     private static void ApplyBotState(CCSPlayerController player)
     {
         var pawn = player.PlayerPawn.Value;
@@ -134,16 +164,10 @@ public class BotState : BasePlugin
         var bot = pawn.Bot;
         if (bot == null) return;
 
-        bot.AllowActive = true;
+        ref float safeTime = ref bot.SafeTime;
+        safeTime = 0f;  
 
-        pawn.BotAllowActive = true;
-
-        bot.IsSleeping = false;
-
-        bot.SafeTime = 0f;
-
-        pawn.IdleTimeSinceLastAction = 0f;
-
-        bot.HasVisitedEnemySpawn = true;
+        ref bool hasVisitedEnemySpawn = ref bot.HasVisitedEnemySpawn;
+        hasVisitedEnemySpawn = true;
     }
 }
