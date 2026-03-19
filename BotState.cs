@@ -142,9 +142,6 @@ public class BotState : BasePlugin
             ref bool allowActive = ref bot.AllowActive;
             allowActive = true;
 
-            ref bool botAllowActive = ref pawn.BotAllowActive;
-            botAllowActive = true;
-
             ref bool isSleeping = ref bot.IsSleeping;
             isSleeping = false;
 
