@@ -88,7 +88,7 @@ public partial class BotState
     // Applies the platform-specific FOV branch patches
     private void ApplyFovPatches()
     {
-        if (!_fovPatchesAvailable || _appliedFovPatches.Count > 0)
+        if (CustomFovActive || !_fovPatchesAvailable || _appliedFovPatches.Count > 0)
             return;
 
         FovPatchDefinition[] patches = RuntimeInformation.IsOSPlatform(OSPlatform.Linux)

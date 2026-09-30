@@ -17,6 +17,8 @@ public partial class BotState
         InstallDefuseBombHook();
         InstallBotBlindHook();
         InitializeFovPatches();
+        LoadCustomFov();
+        RegisterListener<Listeners.OnMapEnd>(ClearFovObservers);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
@@ -51,6 +53,9 @@ public partial class BotState
     // Restores plugin-owned state before the plugin unloads
     public override void Unload(bool hotReload)
     {
+        _customFovLoaded = false;
+        _customFov?.Dispose(); _customFov = null;
+        ClearFovObservers();
         CancelAllFakeDefuseSuppressions();
         UninstallBotBlindHook();
         UninstallDefuseBombHook();
@@ -94,6 +99,7 @@ public partial class BotState
     // Clears per-round state and releases elimination knife locks
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
+        ClearFovObservers();
         ReleaseKnifeLocks();
         StopDefuseReveal();
         ClearReveals();
