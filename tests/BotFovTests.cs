@@ -5,8 +5,8 @@ namespace BotState.Tests;
 
 public sealed class BotFovTests
 {
-    private static BotViewFrustum View(float horizontal = 120, Vector3 angles = default, float aspect = 16f / 9)
-        => BotViewFrustum.Build(Vector3.Zero, angles, new() { HorizontalDegrees = horizontal, AspectRatio = aspect });
+    private static BotViewFrustum View(float horizontal = 120, Vector3 angles = default, float aspect = 16f / 9, float? vertical = null)
+        => BotViewFrustum.Build(Vector3.Zero, angles, new() { HorizontalDegrees = horizontal, VerticalDegrees = vertical, AspectRatio = aspect });
     private static Vector3 Direction(float yaw, float pitch = 0)
     {
         float y = yaw * MathF.PI / 180, p = pitch * MathF.PI / 180;
@@ -26,6 +26,45 @@ public sealed class BotFovTests
         Assert.False(View().Contains(Direction(0, 45)));
         Assert.True(View(aspect: 1).Contains(Direction(0, 59)));
         Assert.False(View().Contains(Direction(0, -45)));
+    }
+
+    [Fact]
+    public void ExplicitAxesAreIndependentAndIgnoreAspect()
+    {
+        var view = View(120, vertical: 60);
+        Assert.True(view.Contains(Direction(59)));
+        Assert.False(view.Contains(Direction(61)));
+        Assert.True(view.Contains(Direction(0, 30)));
+        Assert.True(view.Contains(Direction(0, -30)));
+        Assert.False(view.Contains(Direction(0, 31)));
+        Assert.False(view.Contains(Direction(0, -31)));
+        Assert.Equal(view, View(120, aspect: 1, vertical: 60));
+        Assert.True(View(60, vertical: 120).Contains(Direction(0, 59)));
+        Assert.False(View(60, vertical: 120).Contains(Direction(31)));
+        Assert.True(View(120, angles: new(0, 0, 90), vertical: 60).Contains(Direction(0, 59)));
+        Assert.False(View(120, angles: new(0, 0, 90), vertical: 60).Contains(Direction(31)));
+    }
+
+    [Fact]
+    public void EachAxisCanReachItsOwn180DegreeLimit()
+    {
+        Assert.True(View(180, vertical: 60).Contains(new(.01f, 1000, 0)));
+        Assert.False(View(180, vertical: 60).Contains(new(1, 0, 1)));
+        Assert.True(View(60, vertical: 180).Contains(new(.01f, 0, 1000)));
+        Assert.False(View(60, vertical: 180).Contains(new(1, 1, 0)));
+        Assert.False(View(180, vertical: 180).Contains(new(-1, 0, 0)));
+        Assert.True(View(360, vertical: 360).Contains(new(-1, 0, 0)));
+        Assert.True(View(1, vertical: 1).Contains(Direction(.49f)));
+        Assert.False(View(1, vertical: 1).Contains(Direction(.51f)));
+    }
+
+    [Fact]
+    public void InvalidVerticalAnglesAreRejected()
+    {
+        foreach (float angle in new[] { 0f, 181f, float.NaN, float.PositiveInfinity })
+            Assert.Throws<ArgumentException>(() => View(vertical: angle));
+        Assert.Throws<ArgumentException>(() => View(360, vertical: 90));
+        Assert.Throws<ArgumentException>(() => View(aspect: float.MaxValue));
     }
 
     [Fact]
@@ -69,11 +108,13 @@ public sealed class BotFovTests
         {
             float fov = 10 + (float)random.NextDouble() * 160;
             float aspect = .5f + (float)random.NextDouble() * 2.5f;
+            float? vertical = i % 2 == 0 ? 10 + (float)random.NextDouble() * 160 : null;
             Vector3 p = new((float)random.NextDouble() * 200 - 100,
                 (float)random.NextDouble() * 200 - 100, (float)random.NextDouble() * 200 - 100);
             float h = MathF.Tan(fov * MathF.PI / 360);
-            bool expected = p.X > 0 && MathF.Abs(p.Y) <= p.X * h && MathF.Abs(p.Z) <= p.X * h / aspect;
-            Assert.Equal(expected, View(fov, aspect: aspect).Contains(p));
+            float v = vertical.HasValue ? MathF.Tan(vertical.Value * MathF.PI / 360) : h / aspect;
+            bool expected = p.X > 0 && MathF.Abs(p.Y) <= p.X * h && MathF.Abs(p.Z) <= p.X * v;
+            Assert.Equal(expected, View(fov, aspect: aspect, vertical: vertical).Contains(p));
         }
     }
 

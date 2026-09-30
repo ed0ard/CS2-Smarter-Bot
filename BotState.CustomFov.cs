@@ -96,25 +96,38 @@ public partial class BotState : IPluginConfig<SmarterBotConfig>
         return frame;
     }
 
-    [ConsoleCommand("css_bot_fov", "Custom bot perception FOV: status | native | <1..180|360> [aspect]")]
+    private const string FovUsage = "css_bot_fov status | native | <horizontal> [vertical|auto [aspect]]";
+
+    [ConsoleCommand("css_bot_fov", FovUsage)]
     [RequiresPermissions("@css/root")]
     public void OnBotFovCommand(CCSPlayerController? caller, CommandInfo command)
     {
         string arg = command.ArgCount > 1 ? command.GetArg(1) : "status";
         try
         {
-            if (arg.Equals("native", StringComparison.OrdinalIgnoreCase))
-                ApplyCustomFov(Config.CustomFov with { Enabled = false });
-            else if (!arg.Equals("status", StringComparison.OrdinalIgnoreCase))
+            if (arg.Equals("native", StringComparison.OrdinalIgnoreCase) || arg.Equals("status", StringComparison.OrdinalIgnoreCase))
             {
-                if (command.ArgCount > 3 || !float.TryParse(arg, NumberStyles.Float, CultureInfo.InvariantCulture, out float degrees))
-                    throw new ArgumentException("Usage: css_bot_fov status | native | <1..180|360> [aspect]");
-                float aspect = Config.CustomFov.AspectRatio;
-                if (command.ArgCount > 2 && !float.TryParse(command.GetArg(2), NumberStyles.Float, CultureInfo.InvariantCulture, out aspect))
-                    throw new ArgumentException("Invalid aspect ratio; use e.g. 1.7777778 for 16:9.");
-                ApplyCustomFov(new() { Enabled = true, HorizontalDegrees = degrees, AspectRatio = aspect });
+                if (command.ArgCount > 2) throw new ArgumentException("Usage: " + FovUsage);
+                if (arg.Equals("native", StringComparison.OrdinalIgnoreCase))
+                    ApplyCustomFov(Config.CustomFov with { Enabled = false });
             }
-            command.ReplyToCommand($"[Smarter-Bot] FOV={_customFovStatus}; active={CustomFovActive}; horizontal={Config.CustomFov.HorizontalDegrees}; aspect={Config.CustomFov.AspectRatio}; points={_customFov?.PointsTested ?? 0}; rejected={_customFov?.PointsRejected ?? 0}");
+            else
+            {
+                bool automatic = command.ArgCount < 3 || command.GetArg(2).Equals("auto", StringComparison.OrdinalIgnoreCase);
+                if (command.ArgCount > 4 || (command.ArgCount == 4 && !automatic))
+                    throw new ArgumentException("Usage: " + FovUsage);
+                ApplyCustomFov(new()
+                {
+                    Enabled = true,
+                    HorizontalDegrees = float.Parse(arg, NumberStyles.Float, CultureInfo.InvariantCulture),
+                    VerticalDegrees = automatic ? null : float.Parse(command.GetArg(2), NumberStyles.Float, CultureInfo.InvariantCulture),
+                    AspectRatio = command.ArgCount == 4 ? float.Parse(command.GetArg(3), NumberStyles.Float, CultureInfo.InvariantCulture) : Config.CustomFov.AspectRatio
+                });
+            }
+            var options = Config.CustomFov;
+            string projection = options.HorizontalDegrees == 360 ? "omnidirectional"
+                : options.VerticalDegrees.HasValue ? "explicit" : "auto";
+            command.ReplyToCommand(FormattableString.Invariant($"[Smarter-Bot] FOV={_customFovStatus}; active={CustomFovActive}; horizontal={options.HorizontalDegrees:0.###}; vertical={options.EffectiveVerticalDegrees:0.###}; projection={projection}; aspect={options.AspectRatio:0.#######}; points={_customFov?.PointsTested ?? 0}; rejected={_customFov?.PointsRejected ?? 0}"));
         }
         catch (Exception ex) { command.ReplyToCommand("[Smarter-Bot] " + ex.Message); }
     }

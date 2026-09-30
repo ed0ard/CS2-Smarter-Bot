@@ -48,16 +48,23 @@ Server console or an admin with `@css/root` can use:
 
 ```text
 css_bot_fov 120
-css_bot_fov 120 1.7777778
+css_bot_fov 120 90
+css_bot_fov 120 auto 1.7777778
 css_bot_fov 180
 css_bot_fov 360
 css_bot_fov native
 css_bot_fov status
 ```
 
-The angle is the **full horizontal FOV**, with supported values 1–180 or 360.
-Vertical FOV follows the configured aspect ratio (default 16:9), including pitch and roll;
-it does not follow a spectator's screen size or automatically narrow when scoping.
+Both inputs are **full angles**: `120 90` means 60 degrees left/right and 45 degrees
+up/down in the bot's camera space, including pitch and roll. Each axis accepts 1–180°;
+`360` (or `360 360`) enables omnidirectional perception. Mixed 360°/limited axes are rejected.
+
+Omit the vertical angle or use `auto` to derive it from the aspect ratio (default 16:9).
+The second numeric argument is now vertical FOV; pass aspect ratio after `auto`.
+Explicit vertical FOV ignores aspect ratio. `status` displays both effective angles.
+Angles must be finite and in range, including automatic vertical FOV; aspect ratio must
+be finite and positive. FOV does not follow spectator screen size or scope zoom.
 Commands change the current session. For persistence, edit the CSS-generated BotState config:
 
 ```json
@@ -65,11 +72,15 @@ Commands change the current session. For persistence, edit the CSS-generated Bot
   "CustomFov": {
     "Enabled": true,
     "HorizontalDegrees": 120,
+    "VerticalDegrees": 90,
     "AspectRatio": 1.7777778
   },
   "ConfigVersion": 1
 }
 ```
+
+Set `VerticalDegrees` to `null` (or omit it, as in existing configs) for automatic vertical FOV.
+In 360-degree mode it must be `null` or `360`.
 
 Native `IsVisible(player)` retains its target validation, range checks, body sample order
 and visible-part mask. Its old center FOV gate is bypassed; each native body sample instead
