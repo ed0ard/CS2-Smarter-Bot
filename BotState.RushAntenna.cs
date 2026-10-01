@@ -8,7 +8,7 @@ namespace BotState;
 
 public partial class BotState
 {
-    [ConsoleCommand("css_rush_antenna", "Show the current Rush antenna owner (read-only).")]
+    [ConsoleCommand("css_rush_antenna", "Show the current Rush antenna owner and element color (read-only).")]
     [CommandHelper(whoCanExecute: CommandUsage.CLIENT_AND_SERVER)]
     public void OnRushAntennaCommand(CCSPlayerController? caller, CommandInfo command)
     {
@@ -68,9 +68,9 @@ public partial class BotState
                 1 => "neutral (team=0)",
                 3 => "CT (team=3)",
                 4 => "T (team=2)",
-                _ => $"unknown (radar color={color})"
+                _ => "unknown"
             };
-            command.ReplyToCommand($"[Smarter-Bot] Rush antenna: {owner}.");
+            command.ReplyToCommand($"[Smarter-Bot] Rush antenna: {owner}; elementColor={color}.");
         }
         catch (Exception)
         {

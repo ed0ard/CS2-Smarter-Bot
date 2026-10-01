@@ -40,8 +40,10 @@ CS2-Smarter-Bot is a plugin based on CounterStrikeSharp that aims to make bots s
 ## Rush antenna status
 
 Run `css_rush_antenna` in the player or server console to show the current antenna
-owner on `rush_001`: CT, T, or neutral. No admin permission is required, and the
-command accepts no arguments. It only replies to the caller and does not change
+owner on `rush_001`: CT, T, or neutral, plus the raw `m_nElementColor` value as
+`elementColor` (1 = gray/neutral, 3 = CT, 4 = T). These color IDs are not team IDs.
+No admin permission is required, and the command accepts no arguments.
+It only replies to the caller and does not change
 ownership, entities, convars, or bot behavior.
 
 The command reads the antenna radar marker's color through Schema, as published
