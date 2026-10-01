@@ -39,6 +39,7 @@ public partial class BotState
             1.0f,
             ReequipGunForActiveBots,
             CounterStrikeSharp.API.Modules.Timers.TimerFlags.REPEAT);
+        StartRushAntennaPublisher();
     }
 
     // Resolves capabilities supplied by plugins after every plugin has loaded
@@ -63,6 +64,7 @@ public partial class BotState
         ClearReveals();
         _defuseRevealTimer?.Kill();
         _gunReequipTimer?.Kill();
+        StopRushAntennaPublisher();
     }
     //---------------------------------------------------------------------------------------
     // Applies initial Bot state on the frame following spawn.
