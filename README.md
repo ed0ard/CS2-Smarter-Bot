@@ -37,6 +37,19 @@ CS2-Smarter-Bot is a plugin based on CounterStrikeSharp that aims to make bots s
 
 5. Restart your server
 
+## Rush antenna status
+
+Run `css_rush_antenna` in the player or server console to show the current antenna
+owner on `rush_001`: CT, T, or neutral. No admin permission is required, and the
+command accepts no arguments. It only replies to the caller and does not change
+ownership, entities, convars, or bot behavior.
+
+The command reads the antenna radar marker's color through Schema, as published
+by the map script, including during warmup. This reports the displayed antenna
+owner, not a predicted round winner. Missing or ambiguous markers and unknown
+colors are reported explicitly. The entity is looked up on each query so room
+changes and map reloads do not leave a cached owner.
+
 ## Custom bot FOV
 
 Custom FOV is **off by default**. It changes perception, while the native botprofile-driven
