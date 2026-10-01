@@ -53,7 +53,6 @@ public partial class BotState
     // Restores plugin-owned state before the plugin unloads
     public override void Unload(bool hotReload)
     {
-        _customFovLoaded = false;
         _customFov?.Dispose(); _customFov = null;
         ClearFovObservers();
         CancelAllFakeDefuseSuppressions();

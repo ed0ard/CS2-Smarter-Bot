@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Memory.DynamicFunctions;
 
@@ -18,19 +17,17 @@ internal sealed class BotFovHooks : IDisposable
     internal long PointsTested { get; private set; }
     internal long PointsRejected { get; private set; }
 
-    internal BotFovHooks(string moduleDirectory, Func<nint, BotViewFrustum?> getView, Action<Exception> fault)
+    internal BotFovHooks(Func<nint, BotViewFrustum?> getView, Action<Exception> fault)
     {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("Custom FOV currently requires Windows; Linux keeps its existing native FOV.");
+        if ((!OperatingSystem.IsWindows() && !OperatingSystem.IsLinux()) || RuntimeInformation.ProcessArchitecture != Architecture.X64)
+            throw new PlatformNotSupportedException("Custom FOV requires Windows or Linux x64.");
         this.getView = getView; this.fault = fault;
-        using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(moduleDirectory, "custom-fov.gamedata.json")));
-        var signatures = json.RootElement.GetProperty("Windows");
         // CSS caches signature bindings across Unhook/reload, so reuse the same
         // signatures rather than scanning already-detoured prologues ourselves.
-        player = new(signatures.GetProperty("IsVisiblePlayer").GetString()!);
-        position = new(signatures.GetProperty("IsVisiblePosition").GetString()!);
+        player = new(OperatingSystem.IsWindows() ? BotFovSignatures.WindowsPlayer : BotFovSignatures.LinuxPlayer);
+        position = new(OperatingSystem.IsWindows() ? BotFovSignatures.WindowsPosition : BotFovSignatures.LinuxPosition);
         if (player.Handle == 0 || position.Handle == 0)
-            throw new InvalidOperationException("Custom FOV visibility signatures unavailable; update custom-fov.gamedata.json.");
+            throw new InvalidOperationException("Custom FOV visibility signatures unavailable; native vision remains active.");
         try
         {
             position.Hook(OnPosition, HookMode.Pre); positionHooked = true;

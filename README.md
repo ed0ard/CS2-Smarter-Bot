@@ -21,7 +21,7 @@ CS2-Smarter-Bot is a plugin based on CounterStrikeSharp that aims to make bots s
 
 8. Fixes an issue where bots would only aim without shooting
 
-9. Optional custom 3D bot perception FOV (Windows)
+9. Custom 3D bot perception FOV (Windows and Linux x64)
 <img width="464" height="433" alt="smarter" src="https://github.com/user-attachments/assets/43ed231f-a79e-456d-8a25-862d476ccad4" />
 
 # Installation
@@ -52,17 +52,17 @@ changes and map reloads do not leave a cached owner.
 
 ## Custom bot FOV
 
-Custom FOV is **off by default**. It changes perception, while the native botprofile-driven
-view controller, hearing and decision-making continue to operate normally. No BotVision
-module or native build toolchain is required. Include `custom-fov.gamedata.json` beside
-`BotState.dll` when installing or publishing this plugin.
+Custom FOV starts at **120° horizontal and 180° vertical** on Windows and Linux x64.
+It changes perception, while the native botprofile-driven view controller, hearing and
+decision-making continue to operate normally. Signatures are built into the plugin;
+no FOV gamedata file or generated BotState config is required or read.
 
 Server console or an admin with `@css/root` can use:
 
 ```text
+css_bot_fov 120 180
 css_bot_fov 120
 css_bot_fov 120 90
-css_bot_fov 120 auto 1.7777778
 css_bot_fov 180
 css_bot_fov 360
 css_bot_fov native
@@ -73,27 +73,14 @@ Both inputs are **full angles**: `120 90` means 60 degrees left/right and 45 deg
 up/down in the bot's camera space, including pitch and roll. Each axis accepts 1–180°;
 `360` (or `360 360`) enables omnidirectional perception. Mixed 360°/limited axes are rejected.
 
-Omit the vertical angle or use `auto` to derive it from the aspect ratio (default 16:9).
-The second numeric argument is now vertical FOV; pass aspect ratio after `auto`.
-Explicit vertical FOV ignores aspect ratio. `status` displays both effective angles.
-Angles must be finite and in range, including automatic vertical FOV; aspect ratio must
-be finite and positive. FOV does not follow spectator screen size or scope zoom.
-Commands change the current session. For persistence, edit the CSS-generated BotState config:
-
-```json
-{
-  "CustomFov": {
-    "Enabled": true,
-    "HorizontalDegrees": 120,
-    "VerticalDegrees": 90,
-    "AspectRatio": 1.7777778
-  },
-  "ConfigVersion": 1
-}
-```
-
-Set `VerticalDegrees` to `null` (or omit it, as in existing configs) for automatic vertical FOV.
-In 360-degree mode it must be `null` or `360`.
+Two numeric arguments directly set the horizontal and vertical angles. With only one
+angle, the command calculates vertical FOV once using a fixed 16:9 ratio; for example,
+`css_bot_fov 120` sets approximately 120° × 88.507°. There is no ratio setting or `auto`
+argument. `status` (also the no-argument default) displays the two active settings.
+Angles must be finite and in range, including the calculated vertical angle.
+FOV does not follow spectator screen size or scope zoom. Commands apply for the current
+plugin session; reloading starts again at 120° × 180°. Old generated FOV config files
+and `custom-fov.gamedata.json` are ignored and can be removed.
 
 Native `IsVisible(player)` retains its target validation, range checks, body sample order
 and visible-part mask. Its old center FOV gate is bypassed; each native body sample instead
@@ -106,11 +93,13 @@ Fake-defuse search keeps the configured FOV while custom mode is enabled, instea
 its existing global 360-degree patches. `native` restores the plugin's previous behavior.
 Humans, human takeovers and BotController replay/All/Aim ownership are excluded.
 
-The signatures are verified against Windows CS2 1.41.8.5 / revision 11039926. Linux custom
-hooks are not included; Linux retains its existing native behavior and reports an unsupported
-platform if custom FOV is requested. Missing signatures also leave native vision active.
+The entry signatures include function-specific scope setup and argument saves, with
+addresses and stack displacements masked. Both Windows signatures match exactly once
+in all 15 supplied May–September binaries and the October 1 local server. Linux signatures
+and the player-to-body-point call ABI were verified against the supplied `libserver.so`
+(SHA256 `d81faffb3e3a5f2001932b3b55a96c4ac05c2ed4b99702b06fc416b6e9bb5300`).
+Linux still needs a live-server smoke test. Missing signatures leave native vision active.
 Other plugins that replace these same visibility functions require separate compatibility testing.
 
 Build with the .NET 10 SDK and `BotControllerApi.dll` from the linked BotController project
-in `libs/`, then run `dotnet build -c Release`. Pure geometry and query-scope tests need no
-server or BotController binary: `dotnet test tests/BotFov.Tests.csproj -c Release`.
+in `libs/`, then run `dotnet build -c Release`.

@@ -4,30 +4,36 @@ namespace BotState;
 
 public sealed record BotFovOptions
 {
-    public bool Enabled { get; init; }
+    public bool Enabled { get; init; } = true;
     public float HorizontalDegrees { get; init; } = 120;
-    // Null derives vertical FOV from horizontal FOV and aspect ratio.
-    public float? VerticalDegrees { get; init; }
-    public float AspectRatio { get; init; } = 16f / 9;
+    public float VerticalDegrees { get; init; } = 180;
 
-    internal float EffectiveVerticalDegrees => HorizontalDegrees == 360 ? 360
-        : VerticalDegrees ?? (HorizontalDegrees == 180 ? 180
-            : (float)(2 * Math.Atan(Math.Tan(HorizontalDegrees * Math.PI / 360) / AspectRatio) * 180 / Math.PI));
+    // Resolve the command's one-angle shorthand once; runtime state always
+    // contains two independent angles and has no aspect-ratio setting.
+    internal static BotFovOptions FromDegrees(float horizontal, float? vertical = null)
+    {
+        var options = new BotFovOptions
+        {
+            HorizontalDegrees = horizontal,
+            VerticalDegrees = vertical ?? (horizontal is 180 or 360 ? horizontal
+                : (float)(2 * Math.Atan(Math.Tan(horizontal * Math.PI / 360) / (16d / 9)) * 180 / Math.PI))
+        };
+        options.Validate();
+        return options;
+    }
 
     internal void Validate()
     {
-        if (!float.IsFinite(AspectRatio) || AspectRatio <= 0)
-            throw new ArgumentException("AspectRatio must be finite and positive.");
         if (HorizontalDegrees == 360)
         {
-            if (VerticalDegrees is not (null or 360))
-                throw new ArgumentException("360-degree mode requires VerticalDegrees to be null (auto) or 360.");
+            if (VerticalDegrees != 360)
+                throw new ArgumentException("360-degree mode requires both angles to be 360.");
             return;
         }
         if (!ValidAngle(HorizontalDegrees))
             throw new ArgumentException("HorizontalDegrees must be finite and within 1..180, or 360 for omnidirectional mode.");
-        if (!ValidAngle(EffectiveVerticalDegrees))
-            throw new ArgumentException("Vertical FOV must be finite and within 1..180, including when derived from AspectRatio.");
+        if (!ValidAngle(VerticalDegrees))
+            throw new ArgumentException("Vertical FOV must be finite and within 1..180, including when derived from 16:9.");
     }
 
     private static bool ValidAngle(float value) => float.IsFinite(value) && value >= 1 && value <= 180;
@@ -52,7 +58,7 @@ internal readonly record struct BotViewFrustum(Vector3 Eye, Vector3 Front, Vecto
         Vector3 rolledUp = up * MathF.Cos(r) - right * MathF.Sin(r);
         bool omnidirectional = options.HorizontalDegrees == 360;
         float horizontal = omnidirectional ? 180 : options.HorizontalDegrees;
-        float vertical = omnidirectional ? 180 : options.EffectiveVerticalDegrees;
+        float vertical = omnidirectional ? 180 : options.VerticalDegrees;
         float sh = MathF.Sin(horizontal * Radians * .5f), ch = horizontal == 180 ? 0 : MathF.Cos(horizontal * Radians * .5f);
         float sv = MathF.Sin(vertical * Radians * .5f), cv = vertical == 180 ? 0 : MathF.Cos(vertical * Radians * .5f);
         return new(eye, forward, forward * sh + rolledRight * ch, forward * sh - rolledRight * ch,
