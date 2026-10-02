@@ -15,17 +15,19 @@ CS2-Smarter-Bot is a plugin based on CounterStrikeSharp that aims to make bots s
 
 5. Each bot has a chance to anti-flash, according to the visible duration of the flash
 
-6. Allows bots to spray at any range
+6. Fixed bots' FOV to align with human players
 
-7. Refines bot behavior logic
+7. Allows bots to spray at any range
 
-8. Fixes an issue where bots would only aim without shooting
+8. Refines bot behavior logic
+
+9. Fixes an issue where bots would only aim without shooting
+
+
 <img width="464" height="433" alt="smarter" src="https://github.com/user-attachments/assets/43ed231f-a79e-456d-8a25-862d476ccad4" />
 
 # Installation
-1. Download the latest **RayTrace-MM.tar.gz** and **RayTrace-CSS-API.tar.gz** from [Ray-Trace](https://github.com/FUNPLAY-pro-CS2/Ray-Trace/releases)
-
-   Also download the latest **BotController-MM.zip** and **BotController-CSS-API.zip** from [CS2-Bot-Controller](https://github.com/XBribo/CS2-Bot-Controller/releases)
+1. Download the latest **BotController-MM.zip** and **BotController-CSS-API.zip** from [CS2-Bot-Controller](https://github.com/XBribo/CS2-Bot-Controller/releases)
 
 2. Extract the folders and upload them to `game/csgo/addons` on your server
 

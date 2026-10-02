@@ -17,6 +17,8 @@ public partial class BotState
         InstallDefuseBombHook();
         InstallBotBlindHook();
         InitializeFovPatches();
+        LoadCustomFov();
+        RegisterListener<Listeners.OnMapEnd>(ClearFovObservers);
         RegisterEventHandler<EventRoundStart>(OnRoundStart);
         RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
         RegisterEventHandler<EventPlayerSpawn>(OnPlayerSpawn);
@@ -37,6 +39,7 @@ public partial class BotState
             1.0f,
             ReequipGunForActiveBots,
             CounterStrikeSharp.API.Modules.Timers.TimerFlags.REPEAT);
+        StartRushAntennaPublisher();
     }
 
     // Resolves capabilities supplied by plugins after every plugin has loaded
@@ -51,6 +54,8 @@ public partial class BotState
     // Restores plugin-owned state before the plugin unloads
     public override void Unload(bool hotReload)
     {
+        _customFov?.Dispose(); _customFov = null;
+        ClearFovObservers();
         CancelAllFakeDefuseSuppressions();
         UninstallBotBlindHook();
         UninstallDefuseBombHook();
@@ -59,6 +64,7 @@ public partial class BotState
         ClearReveals();
         _defuseRevealTimer?.Kill();
         _gunReequipTimer?.Kill();
+        StopRushAntennaPublisher();
     }
     //---------------------------------------------------------------------------------------
     // Applies initial Bot state on the frame following spawn.
@@ -94,6 +100,7 @@ public partial class BotState
     // Clears per-round state and releases elimination knife locks
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
+        ClearFovObservers();
         ReleaseKnifeLocks();
         StopDefuseReveal();
         ClearReveals();

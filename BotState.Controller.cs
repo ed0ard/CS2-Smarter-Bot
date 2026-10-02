@@ -10,6 +10,15 @@ public partial class BotState
     // Isolates optional BotControllerApi types from the main plugin type
     private static class BotControllerBridge
     {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static bool IsViewControlled(object api, int slot)
+        {
+            var controller = (BotControllerApi.IBotControllerApi)api;
+            return controller.IsLocked(slot, BotControllerApi.LockKind.All)
+                || controller.IsLocked(slot, BotControllerApi.LockKind.Aim)
+                || controller.IsReplaying(slot);
+        }
+
         // Resolves the optional BotController capability at runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static object? TryGet()
