@@ -20,6 +20,9 @@ public partial class BotState
 
     // Flashbang avoidance
     private Vector? _scratchEye;
+    private readonly List<CHandle<CBaseEntity>> _flashProjectiles = new();
+    private readonly List<CHandle<CCSPlayerController>> _flashControllers = new();
+    private bool _flashEntitiesDirty = true;
     private MemoryFunctionVoid<nint, float, float, float>? _botBlindFunction;
 
     private const float FlashFuseSeconds = 1.5f;        // CS2 flashbang fuse
@@ -298,6 +301,39 @@ public partial class BotState
         return null;
     }
     //---------------------------------------------------------------------------------------
+    // Entity lifecycle notifications only invalidate discovery; positions and visibility
+    // are still read every tick. Rebuild in native entity-list order to preserve roll order.
+    private void InvalidateFlashEntities(CEntityInstance entity) => _flashEntitiesDirty = true;
+
+    private void ClearFlashEntities()
+    {
+        _flashProjectiles.Clear();
+        _flashControllers.Clear();
+        _flashEntitiesDirty = true;
+    }
+
+    private void RefreshFlashEntities()
+    {
+        if (!_flashEntitiesDirty) return;
+
+        _flashProjectiles.Clear();
+        foreach (var entity in Utilities.FindAllEntitiesByDesignerName<CBaseEntity>("flashbang_projectile"))
+        {
+            if (entity.IsValid)
+                _flashProjectiles.Add(new CHandle<CBaseEntity>(entity.EntityHandle.Raw));
+        }
+        _flashControllers.Clear();
+        if (_flashProjectiles.Count > 0)
+        {
+            foreach (var controller in Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller"))
+            {
+                if (controller.IsValid)
+                    _flashControllers.Add(new CHandle<CCSPlayerController>(controller.EntityHandle.Raw));
+            }
+        }
+        _flashEntitiesDirty = false;
+    }
+
     // Pre-rolls flash avoidance when the bot first sees the projectile through FOV and LOS
     // The native blind hook reads the result before OnPlayerBlind consumes it
     private void ProcessFlashbangAvoidance()
@@ -306,10 +342,12 @@ public partial class BotState
 
         float now = Server.CurrentTime;
 
+        RefreshFlashEntities();
         var live = new List<(uint idx, Vector pos, float detonateAt)>();
-        foreach (var ent in Utilities.FindAllEntitiesByDesignerName<CBaseEntity>("flashbang_projectile"))
+        foreach (var handle in _flashProjectiles)
         {
-            if (!ent.IsValid) continue;
+            var ent = handle.Value;
+            if (ent == null || !ent.IsValid) continue;
             var pos = ent.AbsOrigin;
             if (pos == null) continue;
 
@@ -358,9 +396,10 @@ public partial class BotState
 
         if (live.Count == 0) return;
 
-        foreach (var bot in Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller"))
+        foreach (var handle in _flashControllers)
         {
-            if (!bot.IsValid || !bot.IsBot) continue;
+            var bot = handle.Value;
+            if (bot == null || !bot.IsValid || !bot.IsBot) continue;
             if (bot.HasBeenControlledByPlayerThisRound) continue;
 
             var pawn = bot.PlayerPawn?.Value;

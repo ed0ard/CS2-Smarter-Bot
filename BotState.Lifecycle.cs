@@ -33,6 +33,11 @@ public partial class BotState
         RegisterEventHandler<EventDoorClose>(OnDoorClose);
         RegisterEventHandler<EventWeaponFire>(OnWeaponFire);
         RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
+        RegisterListener<Listeners.OnEntityCreated>(InvalidateFlashEntities);
+        RegisterListener<Listeners.OnEntitySpawned>(InvalidateFlashEntities);
+        RegisterListener<Listeners.OnEntityDeleted>(InvalidateFlashEntities);
+        RegisterListener<Listeners.OnMapStart>(_ => ClearFlashEntities());
+        RegisterListener<Listeners.OnMapEnd>(ClearFlashEntities);
         RegisterListener<Listeners.OnTick>(OnTick);
         // Prevent bots from holding their knives when there're enemies alive
         _gunReequipTimer = AddTimer(
@@ -56,6 +61,7 @@ public partial class BotState
     {
         _customFov?.Dispose(); _customFov = null;
         ClearFovObservers();
+        ClearFlashEntities();
         CancelAllFakeDefuseSuppressions();
         UninstallBotBlindHook();
         UninstallDefuseBombHook();
