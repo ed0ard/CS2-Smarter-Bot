@@ -32,7 +32,7 @@ public partial class BotState
         if (!cachedInAir && !cachedNearLadder)
         {
             string? wpnFire = pawn.WeaponServices?.ActiveWeapon?.Value?.DesignerName;
-            if (wpnFire != null)
+            if (wpnFire is not (null or "weapon_knife" or "weapon_taser"))
             {
                 float vx = pawn.AbsVelocity.X;
                 float vy = pawn.AbsVelocity.Y;
@@ -70,7 +70,7 @@ public partial class BotState
         // Random combat crouch
         double crouchChance = 0.0;
         string? wpn = pawn.WeaponServices?.ActiveWeapon?.Value?.DesignerName;
-        if (wpn != null)
+        if (wpn is not (null or "weapon_knife" or "weapon_taser"))
         {
             if (wpn is "weapon_glock" or "weapon_hkp2000" or "weapon_p250" or "weapon_fiveseven")
                 crouchChance = 0.20;
