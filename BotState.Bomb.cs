@@ -231,33 +231,12 @@ public partial class BotState
 
     // Grants each Bot that faked a defuse this round one DefuseBomb re-entry at
     // the moment its last enemy dies
-    private void RestoreDefuseAfterElimination(int victimSlot, CsTeam victimTeam)
+    private void RestoreDefuseAfterElimination(List<CCSPlayerController> bots)
     {
-        if (_pendingDefuseRestore.Count == 0 || _defuseBombFunction == null)
-            return;
-
-        var players = Utilities
-            .FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller")
-            .ToList();
-
-        // The death victim can still report alive here, so exclude it explicitly
-        bool victimTeamHasSurvivor = players.Any(p =>
-            p.IsValid && p.Slot != victimSlot && p.PawnIsAlive
-            && (int)p.TeamNum == (int)victimTeam);
-        if (victimTeamHasSurvivor) return;
-
-        foreach (int slot in _pendingDefuseRestore.ToList())
+        foreach (var bot in bots)
         {
-            var player = Utilities.GetPlayerFromSlot(slot);
-            if (player == null || !player.IsValid || !player.IsBot ||
-                !player.PawnIsAlive || player.HasBeenControlledByPlayerThisRound)
-                continue;
-
-            // Only Bots opposing the wiped team just lost their last enemy
-            if ((int)player.TeamNum == (int)victimTeam) continue;
-
-            _pendingDefuseRestore.Remove(slot);
-            ForceDefuseBombState(slot);
+            if (_pendingDefuseRestore.Remove(bot.Slot))
+                ForceDefuseBombState(bot.Slot);
         }
     }
 

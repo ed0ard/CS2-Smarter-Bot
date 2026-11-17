@@ -20,8 +20,7 @@ public partial class BotState
     // Rolls a 10% inspect for the Bot credited with a kill
     private void MaybeInspectOnKill(CCSPlayerController? attacker)
     {
-        if (_botController == null ||
-            attacker == null || !attacker.IsValid || !attacker.IsBot ||
+        if (attacker == null || !attacker.IsValid || !attacker.IsBot ||
             !attacker.PawnIsAlive || attacker.HasBeenControlledByPlayerThisRound)
             return;
 
@@ -31,47 +30,12 @@ public partial class BotState
         QueueInspectInjection(attacker.Slot);
     }
 
-    // Locks every surviving Bot on the winning team to its knife slot
-    private void HandleTeamElimination(int victimSlot, CsTeam victimTeam)
+    private void LockBotsToKnife(object botController, List<CCSPlayerController> bots)
     {
-        if (_eliminationHandled || _botController == null) return;
-
-        var activePlayers = Utilities.GetPlayers()
-            .Where(player => player.IsValid
-                && !player.IsHLTV
-                && ((int)player.TeamNum == (int)CsTeam.Terrorist
-                    || (int)player.TeamNum == (int)CsTeam.CounterTerrorist))
-            .ToList();
-
-        bool victimTeamHasSurvivor = activePlayers.Any(player =>
-            player.Slot != victimSlot
-            && (int)player.TeamNum == (int)victimTeam
-            && player.PawnIsAlive);
-        if (victimTeamHasSurvivor) return;
-
-        CsTeam winningTeam = victimTeam == CsTeam.Terrorist
-            ? CsTeam.CounterTerrorist
-            : CsTeam.Terrorist;
-        var winningBots = activePlayers.Where(player =>
-                player.IsBot
-                && player.PawnIsAlive
-                && !player.HasBeenControlledByPlayerThisRound
-                && (int)player.TeamNum == (int)winningTeam)
-            .ToList();
-
-        bool winningTeamAlive = activePlayers.Any(player =>
-            (int)player.TeamNum == (int)winningTeam && player.PawnIsAlive);
-        if (!winningTeamAlive) return;
-
-        _eliminationHandled = true;
-
-        foreach (var bot in winningBots)
+        foreach (var bot in bots)
         {
-            bool switched = BotControllerBridge.SwitchBotWeapon(
-                _botController,
-                bot.Slot, KnifeDefinitionIndex);
-            bool locked = BotControllerBridge.LockKnife(
-                _botController, bot.Slot);
+            bool switched = BotControllerBridge.SwitchBotWeapon(botController, bot.Slot, KnifeDefinitionIndex);
+            bool locked = BotControllerBridge.LockKnife(botController, bot.Slot);
             if (switched)
                 QueueInspectInjection(bot.Slot);
             if (locked)
@@ -83,7 +47,6 @@ public partial class BotState
                     $"[Smarter-Bot] Knife action failed for slot {bot.Slot}: switch={switched}, lock={locked}");
             }
         }
-
     }
 
     // Queues a one-command inspect injection after the knife becomes active

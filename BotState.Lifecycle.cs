@@ -130,7 +130,7 @@ public partial class BotState
         if (IsDeathmatch())
             return HookResult.Continue;
 
-        if (_botController == null)
+        if (_botController is not { } botController)
             return HookResult.Continue;
 
         var victim = @event.Userid;
@@ -143,8 +143,27 @@ public partial class BotState
             return HookResult.Continue;
 
         bool alreadyHandled = _eliminationHandled;
-        HandleTeamElimination(victim.Slot, victimTeam);
-        RestoreDefuseAfterElimination(victim.Slot, victimTeam);
+        bool restoreDefuse = _pendingDefuseRestore.Count > 0 && _defuseBombFunction != null;
+        var respawnOnDeath = ConVar.Find(victimTeam == CsTeam.Terrorist
+            ? "mp_respawn_on_death_t" : "mp_respawn_on_death_ct");
+        if ((!alreadyHandled || restoreDefuse) && respawnOnDeath?.GetPrimitiveValue<bool>() == false)
+        {
+            var survivors = Utilities.GetPlayers();
+            survivors.RemoveAll(player => player.Slot == victim.Slot || player.IsHLTV || !player.PawnIsAlive
+                || player.TeamNum is not ((int)CsTeam.Terrorist or (int)CsTeam.CounterTerrorist));
+            if (survivors.Count > 0 && survivors.All(player => player.TeamNum != (int)victimTeam))
+            {
+                survivors.RemoveAll(player => !player.IsBot || player.HasBeenControlledByPlayerThisRound);
+                if (!alreadyHandled)
+                {
+                    _eliminationHandled = true;
+                    LockBotsToKnife(botController, survivors);
+                }
+
+                if (restoreDefuse)
+                    RestoreDefuseAfterElimination(survivors);
+            }
+        }
 
         // 10% chance the killer Bot inspects its current weapon. Skip when this
         // exact kill just triggered the elimination switching, since that path
