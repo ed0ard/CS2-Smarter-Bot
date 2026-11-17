@@ -59,15 +59,15 @@ public partial class BotState
         if (_fovRosterTick != Server.TickCount)
         {
             ClearFovObservers(); _fovRosterTick = Server.TickCount;
-            foreach (var p in Utilities.GetPlayers())
-                if (p.IsValid && p.IsBot && p.PlayerPawn.Value?.Bot is { } native)
+            foreach (var p in GetConnectedPlayers())
+                if (p.IsBot && p.PlayerPawn.Value?.Bot is { } native)
                     _fovObservers[native.Handle] = p;
         }
         if (!_fovObservers.TryGetValue(bot, out var player) || !player.IsValid || !player.IsBot || player.IsHLTV
             || player.HasBeenControlledByPlayerThisRound || player.ControllingBot
             || player.PlayerPawn.Value is not { IsValid: true, Health: > 0, LifeState: 0 } pawn
             || pawn.Bot?.Handle != bot || pawn.AbsOrigin is not { } origin
-            || (_botController != null && BotControllerBridge.IsViewControlled(_botController, player.Slot))) return null;
+            || (GetBotController() is { } api && BotControllerBridge.IsViewControlled(api, player.Slot))) return null;
         var offset = pawn.ViewOffset;
         Vector3 eye = new(origin.X + offset.X, origin.Y + offset.Y, origin.Z + offset.Z);
         var a = pawn.V_angle;

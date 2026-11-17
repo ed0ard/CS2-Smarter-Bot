@@ -5,11 +5,30 @@ namespace BotState;
 
 public partial class BotState
 {
-    private object? _botController;
+    private long _retryBotControllerAt;
 
-    // Isolates optional BotControllerApi types from the main plugin type
+    private object? GetBotController()
+    {
+        long now = Environment.TickCount64;
+        if (now < _retryBotControllerAt) return null;
+
+        try
+        {
+            if (BotControllerBridge.Get() is { } api) return api;
+        }
+        catch (Exception ex) when (ex is KeyNotFoundException or FileNotFoundException or FileLoadException
+            or TypeLoadException or TypeInitializationException) { }
+
+        _retryBotControllerAt = now + 1000;
+        return null;
+    }
+
+    // The bridge isolates the optional BC API.
     private static class BotControllerBridge
     {
+        private static readonly PluginCapability<BotControllerApi.IBotControllerApi> Capability =
+            new("botcontroller:api");
+
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool IsViewControlled(object api, int slot)
         {
@@ -19,17 +38,9 @@ public partial class BotState
                 || controller.IsReplaying(slot);
         }
 
-        // Resolves the optional BotController capability at runtime
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static object? TryGet()
-        {
-            var capability =
-                new PluginCapability<BotControllerApi.IBotControllerApi>(
-                    "botcontroller:api");
-            return capability.Get();
-        }
+        public static object? Get() => Capability.Get();
 
-        // Switches one Bot to its knife definition
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool SwitchBotWeapon(object api, int slot, int defIndex)
         {
@@ -37,7 +48,6 @@ public partial class BotState
                 .SwitchBotWeapon(slot, defIndex);
         }
 
-        // Creates an independently cancellable usercmd injection on a Bot
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static long InjectUsercmd(
             object api, int slot, ulong buttonMask, int durationMs = 0)
@@ -46,7 +56,6 @@ public partial class BotState
                 .InjectUsercmd(slot, buttonMask, durationMs);
         }
 
-        // Starts a cancellable persistent usercmd button suppression
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static long StartUsercmdSuppression(
             object api, int slot, ulong buttonMask)
@@ -55,7 +64,6 @@ public partial class BotState
                 .StartUsercmdSuppression(slot, buttonMask);
         }
 
-        // Cancels one persistent usercmd suppression by its token
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool CancelUsercmdSuppression(
             object api, int slot, long suppressionId)
@@ -64,7 +72,6 @@ public partial class BotState
                 .CancelUsercmdSuppression(slot, suppressionId);
         }
 
-        // Applies the knife-slot weapon lock to one Bot
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool LockKnife(object api, int slot)
         {
@@ -72,20 +79,16 @@ public partial class BotState
                 .Lock(slot, BotControllerApi.LockTarget.Slot3);
         }
 
-        // Checks whether one Bot still has the knife-slot lock
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static bool IsKnifeLocked(object api, int slot)
-        {
-            return ((BotControllerApi.IBotControllerApi)api)
-                .GetWeaponLock(slot) == BotControllerApi.LockTarget.Slot3;
-        }
+        public static bool IsKnifeActive(object api, int slot) =>
+            ((BotControllerApi.IBotControllerApi)api).BotActiveWeaponDef(slot) == KnifeDefinitionIndex;
 
-        // Releases the weapon lock from one Bot
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static bool UnlockWeapon(object api, int slot)
+        public static void ReleaseKnifeLock(object api, int slot)
         {
-            return ((BotControllerApi.IBotControllerApi)api)
-                .Unlock(slot, BotControllerApi.LockKind.Weapon);
+            var controller = (BotControllerApi.IBotControllerApi)api;
+            if (controller.GetWeaponLock(slot) == BotControllerApi.LockTarget.Slot3)
+                controller.Unlock(slot, BotControllerApi.LockKind.Weapon);
         }
     }
 }

@@ -5,20 +5,15 @@ namespace BotState;
 
 public partial class BotState
 {
-    //---------------------------------------------------------------------------------------
-    // Runs bot modules in their original order using one controller traversal.
     private void OnTick()
     {
         ProcessFlashbangAvoidance();
         ExpireReveals(Server.CurrentTime);
+        var botController = GetBotController();
 
-        // Server.MaxPlayers can cache the main menu's one-player limit.
-        int maxPlayers = NativeAPI.GetMaxClients();
-        for (int slot = 0; slot < maxPlayers; slot++)
+        foreach (var player in GetConnectedPlayers())
         {
-            var player = Utilities.GetPlayerFromSlot(slot);
-            if (player == null || !player.IsValid || !player.IsBot)
-                continue;
+            if (!player.IsBot) continue;
 
             var pawn = player.PlayerPawn.Value;
             if (pawn == null || !pawn.IsValid)
@@ -33,7 +28,8 @@ public partial class BotState
 
             int idx = (int)player.Index;
             float now = Server.CurrentTime;
-            InterruptReload(player, pawn, bot, now);
+            if (botController != null)
+                InterruptReload(botController, player.Slot, pawn, bot, now);
             // Door Stuck Fix
             bool inDoorCooldown = _doorEventCooldown.TryGetValue(idx, out float doorCooldownEnd) && now < doorCooldownEnd;
 
@@ -44,6 +40,17 @@ public partial class BotState
 
             RecoverStuckBot(player, pawn, bot, idx, now, curIsAttacking);
             ApplyMapMovementFix(pawn, bot);
+        }
+    }
+
+    private static IEnumerable<CCSPlayerController> GetConnectedPlayers()
+    {
+        // Server.MaxPlayers can cache the menu's one-player limit.
+        int maxPlayers = NativeAPI.GetMaxClients();
+        for (int slot = 0; slot < maxPlayers; slot++)
+        {
+            if (Utilities.GetPlayerFromSlot(slot) is { IsValid: true, Connected: PlayerConnectedState.Connected } player)
+                yield return player;
         }
     }
 }

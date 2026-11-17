@@ -135,11 +135,11 @@ public partial class BotState
         return HookResult.Continue;
     }
 
-    // Keeps the real defuse sound briefly before entering the guard search window
     private void ScheduleFakeDefuse(CCSPlayerController player)
     {
-        if (_botController == null || _defuseBombFunction == null) return;
+        if (_defuseBombFunction == null || GetBotController() == null) return;
 
+        // The short hold lets the defuse sound play.
         float holdSeconds = FakeDefuseHoldMinSeconds +
             (float)_random.NextDouble() *
             (FakeDefuseHoldMaxSeconds - FakeDefuseHoldMinSeconds);
@@ -157,10 +157,9 @@ public partial class BotState
             CounterStrikeSharp.API.Modules.Timers.TimerFlags.STOP_ON_MAPCHANGE);
     }
 
-    // Releases Use and leaves the Bot near the bomb to acquire threats normally
     private void FinishFakeDefuse(int slot, float searchSeconds)
     {
-        if (_botController == null) return;
+        if (GetBotController() is not { } botController) return;
 
         var player = Utilities.GetPlayerFromSlot(slot);
         if (player == null || !player.IsValid || !player.IsBot ||
@@ -174,7 +173,7 @@ public partial class BotState
         if (bot == null) return;
 
         long suppressionId = BotControllerBridge.StartUsercmdSuppression(
-            _botController, slot, UseButtonMask);
+            botController, slot, UseButtonMask);
         if (suppressionId <= 0) return;
 
         _fakeDefuseSuppressionIds[slot] = suppressionId;
@@ -211,53 +210,32 @@ public partial class BotState
         }
     }
 
-    // Releases one Bot's fake-defuse +use suppression, if it still holds one
     private void CancelFakeDefuseSuppression(int slot)
     {
         if (!_fakeDefuseSuppressionIds.Remove(slot, out long suppressionId))
             return;
-        if (_botController == null) return;
-
-        BotControllerBridge.CancelUsercmdSuppression(
-            _botController, slot, suppressionId);
+        if (GetBotController() is { } botController)
+            BotControllerBridge.CancelUsercmdSuppression(botController, slot, suppressionId);
     }
 
-    // Releases every outstanding fake-defuse +use suppression.
     private void CancelAllFakeDefuseSuppressions()
     {
-        foreach (int slot in _fakeDefuseSuppressionIds.Keys.ToList())
-            CancelFakeDefuseSuppression(slot);
+        if (_fakeDefuseSuppressionIds.Count > 0 && GetBotController() is { } botController)
+        {
+            foreach (var (slot, suppressionId) in _fakeDefuseSuppressionIds)
+                BotControllerBridge.CancelUsercmdSuppression(botController, slot, suppressionId);
+        }
+        _fakeDefuseSuppressionIds.Clear();
     }
 
     // Grants each Bot that faked a defuse this round one DefuseBomb re-entry at
     // the moment its last enemy dies
-    private void RestoreDefuseAfterElimination(int victimSlot, CsTeam victimTeam)
+    private void RestoreDefuseAfterElimination(List<CCSPlayerController> bots)
     {
-        if (_pendingDefuseRestore.Count == 0 || _defuseBombFunction == null)
-            return;
-
-        var players = Utilities
-            .FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller")
-            .ToList();
-
-        // The death victim can still report alive here, so exclude it explicitly
-        bool victimTeamHasSurvivor = players.Any(p =>
-            p.IsValid && p.Slot != victimSlot && p.PawnIsAlive
-            && (int)p.TeamNum == (int)victimTeam);
-        if (victimTeamHasSurvivor) return;
-
-        foreach (int slot in _pendingDefuseRestore.ToList())
+        foreach (var bot in bots)
         {
-            var player = Utilities.GetPlayerFromSlot(slot);
-            if (player == null || !player.IsValid || !player.IsBot ||
-                !player.PawnIsAlive || player.HasBeenControlledByPlayerThisRound)
-                continue;
-
-            // Only Bots opposing the wiped team just lost their last enemy
-            if ((int)player.TeamNum == (int)victimTeam) continue;
-
-            _pendingDefuseRestore.Remove(slot);
-            ForceDefuseBombState(slot);
+            if (_pendingDefuseRestore.Remove(bot.Slot))
+                ForceDefuseBombState(bot.Slot);
         }
     }
 

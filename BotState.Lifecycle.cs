@@ -47,12 +47,10 @@ public partial class BotState
         StartRushAntennaPublisher();
     }
 
-    // Resolves capabilities supplied by plugins after every plugin has loaded
     public override void OnAllPluginsLoaded(bool hotReload)
     {
         _scratchEye = new Vector();
-        try { _botController = BotControllerBridge.TryGet(); } catch { _botController = null; }
-        if (_botController == null)
+        if (GetBotController() == null)
             Console.WriteLine("[Smarter-Bot] BotController API not available");
     }
 
@@ -121,16 +119,12 @@ public partial class BotState
         return HookResult.Continue;
     }
 
-    // Detects elimination while explicitly excluding the current death victim
     private HookResult OnPlayerDeath(EventPlayerDeath @event, GameEventInfo info)
     {
-        // Deathmatch is free-for-all even though the engine still reports
-        // temporary T/CT team numbers. Do not treat the last bot on one side
-        // as a round elimination and lock the other bots to their knives.
         if (IsDeathmatch())
             return HookResult.Continue;
 
-        if (_botController == null)
+        if (GetBotController() is not { } botController)
             return HookResult.Continue;
 
         var victim = @event.Userid;
@@ -143,12 +137,29 @@ public partial class BotState
             return HookResult.Continue;
 
         bool alreadyHandled = _eliminationHandled;
-        HandleTeamElimination(victim.Slot, victimTeam);
-        RestoreDefuseAfterElimination(victim.Slot, victimTeam);
+        bool restoreDefuse = _pendingDefuseRestore.Count > 0 && _defuseBombFunction != null;
+        var respawnOnDeath = ConVar.Find(victimTeam == CsTeam.Terrorist
+            ? "mp_respawn_on_death_t" : "mp_respawn_on_death_ct");
+        if ((!alreadyHandled || restoreDefuse) && respawnOnDeath?.GetPrimitiveValue<bool>() == false)
+        {
+            // The death event can precede the alive-state update.
+            var survivors = GetConnectedPlayers().Where(player => player.Slot != victim.Slot && !player.IsHLTV
+                && player.PawnIsAlive && player.TeamNum is (int)CsTeam.Terrorist or (int)CsTeam.CounterTerrorist).ToList();
+            if (survivors.Count > 0 && survivors.All(player => player.TeamNum != (int)victimTeam))
+            {
+                survivors.RemoveAll(player => !player.IsBot || player.HasBeenControlledByPlayerThisRound);
+                if (!alreadyHandled)
+                {
+                    _eliminationHandled = true;
+                    LockBotsToKnife(botController, survivors);
+                }
 
-        // 10% chance the killer Bot inspects its current weapon. Skip when this
-        // exact kill just triggered the elimination switching, since that path
-        // already inspects the knife.
+                if (restoreDefuse)
+                    RestoreDefuseAfterElimination(survivors);
+            }
+        }
+
+        // The wipe path handles its own inspect.
         if (alreadyHandled || !_eliminationHandled)
             MaybeInspectOnKill(@event.Attacker);
 
