@@ -26,7 +26,7 @@ public partial class BotState
         if (_random.NextDouble() >= 0.10)
             return;
 
-        QueueInspectInjection(attacker.Slot);
+        QueueInspectInjection(attacker);
     }
 
     private void LockBotsToKnife(object botController, List<CCSPlayerController> bots)
@@ -41,19 +41,19 @@ public partial class BotState
             }
 
             _knifeLockedBotSlots.Add(slot);
-            QueueInspectInjection(slot, requireKnife: true);
+            QueueInspectInjection(bot, requireKnife: true);
         }
     }
 
-    private void QueueInspectInjection(int slot, bool requireKnife = false)
+    private void QueueInspectInjection(CCSPlayerController player, bool requireKnife = false)
     {
+        if (player.PlayerPawn.Value is not { IsValid: true } pawn) return;
+
+        int slot = player.Slot;
+        uint pawnHandle = pawn.EntityHandle.Raw;
         Server.NextFrame(() =>
         {
-            if (GetBotController() is not { } botController) return;
-
-            var player = Utilities.GetPlayerFromSlot(slot);
-            if (player == null || !player.IsValid || !player.IsBot ||
-                !player.PawnIsAlive || player.HasBeenControlledByPlayerThisRound)
+            if (GetBotController() is not { } botController || !IsSameLiveBotPawn(slot, pawnHandle))
                 return;
 
             if (requireKnife && !BotControllerBridge.IsKnifeActive(botController, slot)) return;
@@ -64,6 +64,13 @@ public partial class BotState
                     $"[Smarter-Bot] Inspect injection failed for slot {slot}");
             }
         });
+    }
+
+    private static bool IsSameLiveBotPawn(int slot, uint pawnHandle)
+    {
+        var player = Utilities.GetPlayerFromSlot(slot);
+        return player is { IsValid: true, IsBot: true, PawnIsAlive: true, HasBeenControlledByPlayerThisRound: false }
+            && player.PlayerPawn.Value is { IsValid: true } pawn && pawn.EntityHandle.Raw == pawnHandle;
     }
 
     private void ReleaseKnifeLocks()
@@ -90,23 +97,20 @@ public partial class BotState
         if (active is not { IsValid: true } || !new CCSWeaponBase(active.Handle).InReload)
             return;
 
+        if (!TrySelectFirearm(pawn, loadedOnly: true, out int weaponDefIndex)) return;
+
+        uint pawnHandle = pawn.EntityHandle.Raw;
         // Switching to the knife cancels the reload.
-        if (!TrySelectFirearm(pawn, loadedOnly: true, out int weaponDefIndex) ||
-            !BotControllerBridge.SwitchBotWeapon(botController, slot, KnifeDefinitionIndex))
+        if (!BotControllerBridge.SwitchBotWeapon(botController, slot, KnifeDefinitionIndex))
             return;
 
         _reloadInterruptCooldown[slot] = now + ReloadInterruptCooldown;
-        Server.NextFrame(() => SwitchBackAfterReloadInterrupt(
-            slot, weaponDefIndex));
+        Server.NextFrame(() => SwitchBackAfterReloadInterrupt(slot, pawnHandle, weaponDefIndex));
     }
 
-    private void SwitchBackAfterReloadInterrupt(int slot, int weaponDefIndex)
+    private void SwitchBackAfterReloadInterrupt(int slot, uint pawnHandle, int weaponDefIndex)
     {
-        if (GetBotController() is not { } botController) return;
-
-        var player = Utilities.GetPlayerFromSlot(slot);
-        if (player == null || !player.IsValid || !player.IsBot ||
-            !player.PawnIsAlive || player.HasBeenControlledByPlayerThisRound)
+        if (GetBotController() is not { } botController || !IsSameLiveBotPawn(slot, pawnHandle))
             return;
 
         if (!BotControllerBridge.SwitchBotWeapon(botController, slot, weaponDefIndex))
@@ -126,7 +130,7 @@ public partial class BotState
         int aliveT = 0, aliveCT = 0;
         foreach (var p in players)
         {
-            if (!p.IsValid || !p.PawnIsAlive) continue;
+            if (!p.PawnIsAlive) continue;
             int t = (int)p.TeamNum;
             if (t == (int)CsTeam.Terrorist) aliveT++;
             else if (t == (int)CsTeam.CounterTerrorist) aliveCT++;
@@ -194,15 +198,8 @@ public partial class BotState
         return weaponDefIndex >= 0;
     }
 
-    // A gun still has a round in either clip or in reserve.
-    private static bool WeaponHasAmmo(CCSWeaponBase weapon)
-    {
-        if (weapon.Clip1 > 0 || weapon.Clip2 > 0)
-            return true;
-
-        var reserve = weapon.ReserveAmmo;
-        return reserve.Length > 0 && reserve[0] > 0;
-    }
+    private static bool WeaponHasAmmo(CCSWeaponBase weapon) =>
+        weapon.Clip1 > 0 || weapon.Clip2 > 0 || weapon.ReserveAmmo[0] > 0;
     //---------------------------------------------------------------------------------------
     // Clears weapons state owned by the completed round.
     private void ResetWeaponsRoundState()
