@@ -59,6 +59,7 @@ public partial class BotState
     // Restores plugin-owned state before the plugin unloads
     public override void Unload(bool hotReload)
     {
+        _activeDifficulty = null;
         _customFov?.Dispose(); _customFov = null;
         ClearFovObservers();
         ClearFlashEntities();
@@ -74,16 +75,16 @@ public partial class BotState
     }
     //---------------------------------------------------------------------------------------
     // Applies initial Bot state on the frame following spawn.
-    [GameEventHandler]
     public HookResult OnPlayerSpawn(EventPlayerSpawn @event, GameEventInfo info)
     {
         var player = @event.Userid;
         if (player == null || !player.IsValid || !player.IsBot)
             return HookResult.Continue;
 
+        QueueDifficulty(player);
         Server.NextFrame(() =>
         {
-            if (player == null || !player.IsValid) return;
+            if (!player.IsValid) return;
             ApplyBotState(player);
         });
 
@@ -118,6 +119,7 @@ public partial class BotState
         ResetWeaponsRoundState();
         ResetBombRoundState();
         ResetFlashbangRoundState();
+        StartDifficultyRound();
         return HookResult.Continue;
     }
 
