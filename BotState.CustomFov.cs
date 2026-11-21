@@ -3,7 +3,6 @@ using System.Numerics;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
-using CounterStrikeSharp.API.Modules.Admin;
 using CounterStrikeSharp.API.Modules.Commands;
 using Microsoft.Extensions.Logging;
 
@@ -84,7 +83,6 @@ public partial class BotState
     private const string FovUsage = "css_bot_fov status | native | <horizontal> [vertical]";
 
     [ConsoleCommand("css_bot_fov", FovUsage)]
-    [RequiresPermissions("@css/root")]
     public void OnBotFovCommand(CCSPlayerController? caller, CommandInfo command)
     {
         string arg = command.ArgCount > 1 ? command.GetArg(1) : "status";

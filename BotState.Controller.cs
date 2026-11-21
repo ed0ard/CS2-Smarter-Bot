@@ -29,6 +29,19 @@ public partial class BotState
             return capability.Get();
         }
 
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        public static Func<object, int, bool> LoadDifficulty(string path)
+        {
+            using var source = File.OpenText(path);
+            var preset = BotDifficultyPreset.Load(source);
+            return (api, slot) =>
+            {
+                var controller = (BotControllerApi.IBotControllerApi)api;
+                return controller.GetBotProfileName(slot, out var name)
+                    && controller.SetBotProfile(slot, preset.GetPatch(name));
+            };
+        }
+
         // Switches one Bot to its knife definition
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static bool SwitchBotWeapon(object api, int slot, int defIndex)

@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BotDifficultyProfilesDir Condition="'$(BotDifficultyProfilesDir)' == ''">difficulty</BotDifficultyProfilesDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -15,6 +16,12 @@
       <HintPath>libs\BotControllerApi.dll</HintPath>
       <Private>false</Private>
     </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <_DifficultyLevel Include="Low;Medium;High" Link="difficulty/%(Identity)/botprofile.db" />
+    <Content Include="@(_DifficultyLevel->'$(BotDifficultyProfilesDir)/%(Identity)/botprofile.db')"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
